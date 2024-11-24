@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pomodoro Timer</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    .timer-container {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .time {
+      font-size: 50px;
+      font-weight: bold;
+      color: #333;
+    }
+    .status {
+      font-size: 20px;
+      margin-top: 10px;
+      color: #333;
+    }
+    .pomo-progress {
+      margin-top: 5px;
+      font-size: 16px;
+      color: #666;
+    }
+    .activity-display {
+      margin-top: 5px;
+      font-size: 16px;
+      color: #333;
+    }
+    .themes {
+      margin-top: 5px;
+      font-size: 16px;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0; /* Remove any gap */
+    }
+    .themes ul {
+      list-style-type: none;
+      padding: 0;
+      margin: 0; /* Remove margin */
+    }
+    .themes li {
+      margin-left: 20px;
+      text-align: left;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .activity-selector, .pomo-adjuster, .theme-input {
+      margin-top: 20px;
+      font-size: 16px;
+    }
+    select, input {
+      padding: 5px;
+      font-size: 16px;
+    }
+    input[type="number"] {
+      width: 50px;
+      text-align: center;
+    }
+    input[type="text"] {
+      width: 200px;
+      text-align: center;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      background-color: #c27ba0;
+      color: white;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #a35282;
+    }
+    button:disabled {
+      background-color: #d6d6d6;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div class="timer-container">
+    <span class="time" id="time">30:00</span>
+    <div class="status" id="status">Foco</div>
+    <div class="pomo-progress" id="progress">Pomo 1 / 10</div>
+    <div class="activity-display" id="selected-activity">
+      <strong>Atividade:</strong> <span id="activity-content">Assistindo Aula</span>
+    </div>
+    <!-- Exibição dos Temas com Bullets -->
+    <div class="themes" id="themes-display"><strong>Temas:</strong>
+      <ul id="themes-list">
+        <!-- Os temas serão listados aqui com bullets -->
+      </ul>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="start">Iniciar</button>
+    <button id="pause" disabled>Pausar</button>
+    <button id="reset">Resetar</button>
+    <button id="set-pomo">Ir para Foco</button>
+    <button id="set-short-break">Ir para Pausa Curta</button>
+    <button id="set-long-break">Ir para Pausa Longa</button>
+  </div>
+
+  <div class="activity-selector">
+    <label for="activity">Selecione uma Atividade: </label>
+    <select id="activity">
+      <option value="Assistindo Aula">Assistindo Aula</option>
+      <option value="Fazendo Resumo">Fazendo Resumo</option>
+      <option value="Criando Flash Cards">Criando Flash Cards</option>
+      <option value="Revisando com Flash Cards">Revisando com Flash Cards</option>
+      <option value="Resolvendo Questões">Resolvendo Questões</option>
+    </select>
+  </div>
+
+  <div class="pomo-adjuster">
+    <label for="manual-pomo">Alterar Pomo Atual: </label>
+    <input type="number" id="manual-pomo" min="1" max="10" value="1">
+    <button id="update-pomo">Atualizar</button>
+  </div>
+
+  <!-- Novo campo para os Temas -->
+  <div class="theme-input">
+    <label for="theme1">Tema 1: </label>
+    <input type="text" id="theme1" placeholder="Digite o primeiro tema...">
+    <br>
+    <label for="theme2">Tema 2: </label>
+    <input type="text" id="theme2" placeholder="Digite o segundo tema...">
+  </div>
+
+  <script>
+    // Configurações do Pomodoro
+    const focusTime = 30 * 60; // 30 minutos em segundos
+    const shortBreakTime = 5 * 60; // 5 minutos em segundos
+    const longBreakTime = 15 * 60; // 15 minutos em segundos
+    const totalPomos = 10; // O máximo de Pomos é 10
+
+    let currentPomo = 1;
+    let isBreak = false;
+    let timeLeft = focusTime;
+    let timerInterval = null;
+    let isTimerRunning = false;
+
+    // Elementos DOM
+    const timeDisplay = document.getElementById('time');
+    const statusDisplay = document.getElementById('status');
+    const progressDisplay = document.getElementById('progress');
+    const selectedActivityDisplay = document.getElementById('selected-activity');
+    const activityContentDisplay = document.getElementById('activity-content');
+    const themesList = document.getElementById('themes-list');
+    const startButton = document.getElementById('start');
+    const pauseButton = document.getElementById('pause');
+    const resetButton = document.getElementById('reset');
+    const setPomoButton = document.getElementById('set-pomo');
+    const setShortBreakButton = document.getElementById('set-short-break');
+    const setLongBreakButton = document.getElementById('set-long-break');
+    const activitySelector = document.getElementById('activity');
+    const manualPomoInput = document.getElementById('manual-pomo');
+    const updatePomoButton = document.getElementById('update-pomo');
+    const theme1Input = document.getElementById('theme1');
+    const theme2Input = document.getElementById('theme2');
+
+    // Atualiza o display do temporizador
+    function updateTimer() {
+      const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+      const seconds = (timeLeft % 60).toString().padStart(2, '0');
+      timeDisplay.textContent = `${minutes}:${seconds}`;
+    }
+
+    // Define o status (Foco, Pausa Curta, Pausa Longa)
+    function updateStatus(customStatus) {
+      if (customStatus) {
+        statusDisplay.textContent = customStatus;
+        return;
+      }
+      if (!isBreak) {
+        statusDisplay.textContent = 'Foco';
+      } else if (currentPomo % 4 === 0) {
+        statusDisplay.textContent = 'Pausa Longa';
+      } else {
+        statusDisplay.textContent = 'Pausa Curta';
+      }
+    }
+
+    // Atualiza o progresso Pomodoro
+    function updateProgress() {
+      progressDisplay.textContent = `Pomo ${currentPomo} / ${totalPomos}`;
+    }
+
+    // Atualiza a atividade selecionada
+    function updateSelectedActivity() {
+      const activity = activitySelector.value;
+      activityContentDisplay.textContent = activity;
+    }
+
+    // Atualiza os temas com bullets
+    function updateThemes() {
+      const theme1 = theme1Input.value;
+      const theme2 = theme2Input.value;
+      
+      // Limpa os temas existentes e adiciona os novos com bullet
+      themesList.innerHTML = ''; 
+      if (theme1) {
+        const li = document.createElement('li');
+        li.textContent = `• ${theme1}`;
+        themesList.appendChild(li);
+      }
+      if (theme2) {
+        const li = document.createElement('li');
+        li.textContent = `• ${theme2}`;
+        themesList.appendChild(li);
+      }
+    }
+
+    // Lógica principal do timer
+    function startTimer() {
+      if (isTimerRunning) return;
+
+      isTimerRunning = true;
+      timerInterval = setInterval(() => {
+        if (timeLeft > 0) {
+          timeLeft--;
+          updateTimer();
+        } else {
+          clearInterval(timerInterval);
+          isTimerRunning = false;
+          if (isBreak) {
+            if (currentPomo % 4 === 0) {
+              currentPomo = 1;
+            } else {
+              currentPomo++;
+            }
+          } else {
+            isBreak = true;
+          }
+          updateProgress();
+          updateStatus();
+          updateSelectedActivity();
+        }
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      clearInterval(timerInterval);
+      isTimerRunning = false;
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      isTimerRunning = false;
+      timeLeft = focusTime;
+      updateTimer();
+      updateStatus();
+      updateProgress();
+    }
+
+    // Inicializa o temporizador
+    startButton.addEventListener('click', () => {
+      startTimer();
+      startButton.disabled = true;
+      pauseButton.disabled = false;
+    });
+
+    pauseButton.addEventListener('click', () => {
+      pauseTimer();
+      startButton.disabled = false;
+      pauseButton.disabled = true;
+    });
+
+    resetButton.addEventListener('click', () => {
+      resetTimer();
+      startButton.disabled = false;
+      pauseButton.disabled = true;
+    });
+
+    // Lógica para selecionar Pomo
+    setPomoButton.addEventListener('click', () => {
+      isBreak = false;
+      timeLeft = focusTime;
+      updateTimer();
+      updateStatus();
+      updateProgress();
+    });
+
+    // Lógica para pausa curta
+    setShortBreakButton.addEventListener('click', () => {
+      isBreak = true;
+      timeLeft = shortBreakTime;
+      updateTimer();
+      updateStatus();
+      updateProgress();
+    });
+
+    // Lógica para pausa longa
+    setLongBreakButton.addEventListener('click', () => {
+      isBreak = true;
+      timeLeft = longBreakTime;
+      updateTimer();
+      updateStatus();
+      updateProgress();
+    });
+
+    // Atualiza o número de Pomos manualmente
+    updatePomoButton.addEventListener('click', () => {
+      currentPomo = parseInt(manualPomoInput.value);
+      updateProgress();
+      updateStatus();
+    });
+
+    // Atualiza a atividade selecionada
+    activitySelector.addEventListener('change', updateSelectedActivity);
+
+    // Atualiza os temas ao digitar
+    theme1Input.addEventListener('input', updateThemes);
+    theme2Input.addEventListener('input', updateThemes);
+
+    // Inicializa o timer na interface
+    updateTimer();
+    updateStatus();
+    updateProgress();
+    updateSelectedActivity();
+  </script>
+</body>
+</html>
